@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="http://apps.bdimg.com/libs/jquery/2.1.1/jquery.min.js"></script>
+</head>
+<body>
+        <form id="form1">
+            <p><input type="text" name="username" id="username"></p>
+            <p><input type="file" name="file" id="file" multiple="multiple"></p>
+            <p><input type="button" value="上传" id="btn"></p>
+
+        </form>
+    <div id="content"></div>
+
+    <div><a href="download.php?appid=2019081301.zip" target="_blank">下载</a></div>
+</body>
+<script type="text/javascript">
+    $('#btn').on('click',function(){
+        var file=document.getElementById('file').files[0];
+        
+        // 2.设置参数
+        var start=0;  //初始分割位置（从0开始）
+        var length=2*1024*1024;  //1MB
+        var end=start+length;   //终止分割位置
+        var blob;       //bolb存储分割后的文件数据
+        var blob_num=1;  //每个文件切片的编号（后台用此编号命名各切片）
+        
+        //3.调用cutfile()函数分割文件
+        blob=cutFile(file);
+
+        //4.调用sendFile()函数向后台程序传递文件
+        sendFile(blob,file);
+
+        //5.切割文件函数
+        function cutFile(file){
+            //使用alice分割文件
+            var file_blob=file.slice(start,end);
+            //重新设置下次截取文件的起始位置，结束位置
+            start = end ; //注意语句前不要加var ，否则会覆盖上面声明的全局变量
+            end=start+length;
+            //返回截取的文件数据
+            return  file_blob;
+        
+        }
+
+        //6.向后台传送文件函数
+        function sendFile(blob,file){
+            var fd=new FormData();
+            $username=$('#username').val();
+            fd.append('username',$username);
+            fd.append('file',blob);
+            fd.append('filename',file.name);
+            fd.append('blob_num',blob_num);
+            fd.append('total_blob_num',Math.ceil(file.size/length));
+
+            //发送ajax
+            $.ajax({
+                url:'./upload.php',
+                type:'post',
+                dataType:'json',
+                data:fd,
+                //不添加下面两行代码会出错
+                processData:false,
+                contentType:false,
+                
+                success:function(data){
+                    var str='';
+                    str+="姓名:"+data['username']+"<br/><img src='"+data['filename']+"' width='100px' height='100px'>";
+                    $('#content').html(str);
+                }
+            })
+
+            if(start<file.size) {
+                var t=setTimeout(function(){
+                    blob_num++;
+                    blob=cutFile(file);
+                    sendFile(blob,file);
+                },1000);
+            }else{
+                clearTimeout(t)
+            }
+        }
+        
+        
+
+    })
+
+</script>
+</html>
